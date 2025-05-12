@@ -438,30 +438,30 @@
                         toggleButtons(['#btnSimpan'], filled);
 
                     });
-                    $('#detail-table-body').on('click', 'tr', function () {
-    const $row = $(this);
-    const kode = $row.data('kode');
-    const nama = $row.data('nama');
-    const harga = $row.data('harga');
-    const qty = $row.data('qty');
-    const diskon = $row.data('diskon');
+                $('#detail-table-body').on('click', 'tr', function() {
+                    const $row = $(this);
+                    const kode = $row.data('kode');
+                    const nama = $row.data('nama');
+                    const harga = $row.data('harga');
+                    const qty = $row.data('qty');
+                    const diskon = $row.data('diskon');
 
-    // Set kembali ke input
-    $('#kode-select').val(kode).trigger('change');
-    $('#nama-barang').val(nama);
-    AutoNumeric.getAutoNumericElement("#harga-barang")?.set(harga);
-    AutoNumeric.getAutoNumericElement("#qty")?.set(qty);
-    AutoNumeric.getAutoNumericElement("#diskon")?.set(diskon);
+                    // Set kembali ke input
+                    $('#kode-select').val(kode).trigger('change');
+                    $('#nama-barang').val(nama);
+                    AutoNumeric.getAutoNumericElement("#harga-barang")?.set(harga);
+                    AutoNumeric.getAutoNumericElement("#qty")?.set(qty);
+                    AutoNumeric.getAutoNumericElement("#diskon")?.set(diskon);
 
-    const bruto = harga * qty;
-    const jumlah = bruto - (diskon / 100 * bruto);
-    AutoNumeric.getAutoNumericElement("#bruto")?.set(bruto);
-    AutoNumeric.getAutoNumericElement("#jumlah")?.set(jumlah);
+                    const bruto = harga * qty;
+                    const jumlah = bruto - (diskon / 100 * bruto);
+                    AutoNumeric.getAutoNumericElement("#bruto")?.set(bruto);
+                    AutoNumeric.getAutoNumericElement("#jumlah")?.set(jumlah);
 
-    toggleButtons(['#btnInput'], false);
-    toggleButtons(['#btn-input', '#btn-batal','#btn-simpan'], true);
-});
-    
+                    toggleButtons(['#btnInput'], false);
+                    toggleButtons(['#btn-input', '#btn-batal', '#btn-simpan'], true);
+                });
+
             })
 
         });
@@ -725,45 +725,81 @@
         }
 
         function simpanDetailBarang() {
-            const index = $('.detail-barang').length;
             const kodeBarang = $('#kode-select').val().toUpperCase();
             const namaBarang = $('#nama-barang').val();
             const harga = AutoNumeric.getNumber('#harga-barang');
-            const qty = AutoNumeric.getNumber('#qty');
+            const qtyInput = AutoNumeric.getNumber('#qty');
             const diskon = AutoNumeric.getNumber('#diskon');
-            const bruto = harga * qty;
-            const jumlahDiskon = (diskon / 100) * bruto;
-            const total = bruto - jumlahDiskon;
             const noFaktur = $('#no-faktur').val().toUpperCase();
-            AutoNumeric.getAutoNumericElement("#bruto")?.set(bruto);
-            AutoNumeric.getAutoNumericElement("#jumlah")?.set(total);
-            const row =
-                `
-<tr data-kode="${kodeBarang}" data-nama="${namaBarang}" data-harga="${harga}" data-qty="${qty}" data-diskon="${diskon}">                        <td>${noFaktur}</td>
-                        <td>${kodeBarang}</td>
-                        <td>${namaBarang}</td>
-                        <td class="text-right currency harga">${harga}</td>
-                        <td class="text-right qty">${qty}</td>
-                        <td class="text-right diskon qtyPercent">${diskon}</td>
-                        <td class="text-right bruto currency">${bruto}</td>
-                        <td class="text-right jumlah currency">${total}</td>
-                    </tr>
-                `;
 
-            $('#detail-table-body').append(row);
-            const hiddenInputs =
-                `
-                    <div class="detail-barang">
-                        <input type="hidden" name="detail[${index}][kode_barang]" value="${kodeBarang}">
-                        <input type="hidden" name="detail[${index}][harga]" value="${harga}">
-                        <input type="hidden" name="detail[${index}][qty]" value="${qty}">
-                        <input type="hidden" name="detail[${index}][diskon]" value="${diskon}">
-                    </div>
-                `;
-            $('#hidden-input-container').append(hiddenInputs);
+            // Hitung nilai awal
+            const brutoBaru = harga * qtyInput;
+            const jumlahDiskonBaru = (diskon / 100) * brutoBaru;
+            const totalBaru = brutoBaru - jumlahDiskonBaru;
 
+            // Update preview
+            AutoNumeric.getAutoNumericElement("#bruto")?.set(brutoBaru);
+            AutoNumeric.getAutoNumericElement("#jumlah")?.set(totalBaru);
+
+            const existingRow = $(`#detail-table-body tr[data-kode="${kodeBarang}"]`);
+
+            if (existingRow.length > 0) {
+                // Sudah ada barang ini → update qty & total
+                const oldQty = parseFloat(existingRow.attr('data-qty'));
+                const newQty = oldQty + qtyInput;
+                const newBruto = harga * newQty;
+                const newJumlahDiskon = (diskon / 100) * newBruto;
+                const newTotal = newBruto - newJumlahDiskon;
+
+                // Update atribut
+                existingRow.attr('data-qty', newQty);
+
+                // Update tampilan tabel
+                existingRow.find('.qty').text(newQty);
+                AutoNumeric.getAutoNumericElement(existingRow.find('.bruto')[0])?.set(newBruto);
+                AutoNumeric.getAutoNumericElement(existingRow.find('.jumlah')[0])?.set(newTotal);
+
+
+                // Update hidden input
+                const index = existingRow.index();
+                const hiddenQtyInput = $(
+                    `#hidden-input-container .detail-barang:eq(${index}) input[name="detail[${index}][qty]"]`
+                );
+                hiddenQtyInput.val(newQty);
+
+            } else {
+                // Barang belum ada → tambahkan baris baru
+                const index = $('.detail-barang').length;
+                const row = `
+<tr data-kode="${kodeBarang}" data-nama="${namaBarang}" data-harga="${harga}" data-qty="${qtyInput}" data-diskon="${diskon}">
+    <td>${noFaktur}</td>
+    <td>${kodeBarang}</td>
+    <td>${namaBarang}</td>
+    <td class="text-right currency harga">${harga}</td>
+    <td class="text-right qty">${qtyInput}</td>
+    <td class="text-right diskon qtyPercent">${diskon}</td>
+    <td class="text-right bruto currency">${brutoBaru}</td>
+    <td class="text-right jumlah currency">${totalBaru}</td>
+</tr>
+    `;
+                $('#detail-table-body').append(row);
+
+                const hiddenInputs = `
+<div class="detail-barang">
+    <input type="hidden" name="detail[${index}][kode_barang]" value="${kodeBarang}">
+    <input type="hidden" name="detail[${index}][harga]" value="${harga}">
+    <input type="hidden" name="detail[${index}][qty]" value="${qtyInput}">
+    <input type="hidden" name="detail[${index}][diskon]" value="${diskon}">
+</div>
+    `;
+                $('#hidden-input-container').append(hiddenInputs);
+            }
+
+
+            // Re-initialize after DOM updates
             initAutoNumericAll();
             calculateFooter();
+
         }
 
         function toTitleCase(str) {
