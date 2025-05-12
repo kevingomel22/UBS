@@ -438,6 +438,30 @@
                         toggleButtons(['#btnSimpan'], filled);
 
                     });
+                    $('#detail-table-body').on('click', 'tr', function () {
+    const $row = $(this);
+    const kode = $row.data('kode');
+    const nama = $row.data('nama');
+    const harga = $row.data('harga');
+    const qty = $row.data('qty');
+    const diskon = $row.data('diskon');
+
+    // Set kembali ke input
+    $('#kode-select').val(kode).trigger('change');
+    $('#nama-barang').val(nama);
+    AutoNumeric.getAutoNumericElement("#harga-barang")?.set(harga);
+    AutoNumeric.getAutoNumericElement("#qty")?.set(qty);
+    AutoNumeric.getAutoNumericElement("#diskon")?.set(diskon);
+
+    const bruto = harga * qty;
+    const jumlah = bruto - (diskon / 100 * bruto);
+    AutoNumeric.getAutoNumericElement("#bruto")?.set(bruto);
+    AutoNumeric.getAutoNumericElement("#jumlah")?.set(jumlah);
+
+    toggleButtons(['#btnInput'], false);
+    toggleButtons(['#btn-input', '#btn-batal','#btn-simpan'], true);
+});
+    
             })
 
         });
@@ -715,8 +739,7 @@
             AutoNumeric.getAutoNumericElement("#jumlah")?.set(total);
             const row =
                 `
-                    <tr>
-                        <td>${noFaktur}</td>
+<tr data-kode="${kodeBarang}" data-nama="${namaBarang}" data-harga="${harga}" data-qty="${qty}" data-diskon="${diskon}">                        <td>${noFaktur}</td>
                         <td>${kodeBarang}</td>
                         <td>${namaBarang}</td>
                         <td class="text-right currency harga">${harga}</td>
