@@ -38,6 +38,12 @@ Route::get('penjualan/{no_faktur}', [PenjualanController::class, 'search']);
 Route::delete('/penjualan/{no_faktur}', [PenjualanController::class, 'destroy']);
 Route::put('/penjualan/update/{no_faktur}', [PenjualanController::class, 'update']);
 Route::post('/penjualan/save', [PenjualanController::class, 'handleSave']);
+Route::post('/penjualan/save-detail', [PenjualanController::class, 'savePenjualanDetail']);
+
+Route::put('/penjualan/update-header/{no_faktur}', [PenjualanController::class, 'updateHeader'])->name('penjualan.update-header');
+Route::put('/penjualan/update-detail/{noFaktur}', [PenjualanController::class, 'updateDetail'])->name('penjualan.update-detail');
+
+
 Route::post('/penjualan/preview', [PenjualanController::class, 'preview'])->name('penjualan.preview');
 Route::post('penjualan/print', [PenjualanController::class, 'printFaktur'])->name('penjualan.print');
 Route::get('/penjualan/export-csv/{noFaktur}', [PenjualanController::class, 'exportCSV'])->name('penjualan.export');

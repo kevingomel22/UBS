@@ -57,6 +57,7 @@ class PenjualanController extends Controller
     public function store(Request $request)
     {
         try {
+            // dd($request);
             $no_faktur = strtolower($request->no_faktur);
 
             // Cek apakah no_faktur sudah ada
@@ -76,9 +77,7 @@ class PenjualanController extends Controller
                 'kode_customer' => ['required', 'string', 'size:4', 'exists:customer,kode_customer'], // asumsi tabel customer ada
                 'kode_jenis_transaksi' => ['required', 'string', 'size:1'],
                 'tgl_faktur' => ['required', 'date'],
-                'total_bruto' => ['required', 'numeric', 'min:0'],
-                'total_diskon' => ['required', 'numeric', 'min:0'],
-                'total_jumlah' => ['required', 'numeric', 'min:0'],
+                
             ], [
                 'no_faktur.required' => 'Nomor faktur wajib diisi.',
                 'no_faktur.size' => 'Nomor faktur harus terdiri dari 6 karakter.',
@@ -90,12 +89,6 @@ class PenjualanController extends Controller
                 'kode_jenis_transaksi.size' => 'Kode jenis transaksi harus 1 karakter.',
                 'tgl_faktur.required' => 'Tanggal faktur wajib diisi.',
                 'tgl_faktur.date' => 'Format tanggal faktur tidak valid.',
-                'total_bruto.required' => 'Total bruto wajib diisi.',
-                'total_bruto.numeric' => 'Total bruto harus berupa angka.',
-                'total_diskon.required' => 'Total diskon wajib diisi.',
-                'total_diskon.numeric' => 'Total diskon harus berupa angka.',
-                'total_jumlah.required' => 'Total jumlah wajib diisi.',
-                'total_jumlah.numeric' => 'Total jumlah harus berupa angka.',
             ]);
 
             // Simpan data penjualan ke tabel penjualan
@@ -104,24 +97,12 @@ class PenjualanController extends Controller
                 'kode_customer' => $request->kode_customer,
                 'kode_jenis_transaksi' => $request->kode_jenis_transaksi,
                 'tgl_faktur' => $request->tgl_faktur,
-                'total_bruto' => $request->total_bruto,
-                'total_diskon' => $request->total_diskon,
-                'total_jumlah' => $request->total_jumlah,
+                'total_bruto' => 0,
+                'total_diskon' => 0,
+                'total_jumlah' => 0,
             ]);
-
-            if ($request->has('detail')) {
-                foreach ($request->detail as $item) {
-                    $penjualan->detailPenjualan()->create([
-                        'no_faktur' => $penjualan->no_faktur,
-                        'kode_barang' => $item['kode_barang'],
-                        'harga' => $item['harga'],
-                        'qty' => $item['qty'],
-                        'diskon' => $item['diskon'],
-                        'bruto' => $item['harga'] * $item['qty'],
-                        'jumlah' => ($item['harga'] * $item['qty']) - ($item['diskon'] / 100 * $item['harga'] * $item['qty']),
-                    ]);
-                }
-            }
+            
+            
 
 
 
@@ -133,6 +114,68 @@ class PenjualanController extends Controller
             return back()->withErrors(['msg' => 'Gagal simpan: ' . $e->getMessage()]);
         }
     }
+    public function hapusDetail($kode_barang, Request $request)
+    {
+        dd($request);
+        try {
+            // Temukan detail penjualan berdasarkan kode_barang dan no_faktur
+            $detailPenjualan = DetailPenjualan::where('kode_barang', $kode_barang)
+                                            ->where('no_faktur', $request->no_faktur) // pastikan no_faktur sesuai
+                                            ->firstOrFail();
+
+            // Hapus detail penjualan
+            $detailPenjualan->delete();
+
+            // Update total penjualan setelah penghapusan detail
+            $penjualan = Penjualan::where('no_faktur', $request->no_faktur)->firstOrFail();
+            $penjualan->update([
+                'total_bruto' => $penjualan->detailPenjualan->sum('bruto'),
+                'total_diskon' => $penjualan->detailPenjualan->sum('diskon'),
+                'total_jumlah' => $penjualan->detailPenjualan->sum('jumlah')
+            ]);
+
+            // Kembalikan response sukses
+            return response()->json(['success' => true, 'message' => 'Detail penjualan berhasil dihapus!']);
+        } catch (\Exception $e) {
+            // Jika terjadi error
+            return response()->json(['success' => false, 'message' => 'Gagal menghapus detail penjualan: ' . $e->getMessage()], 500);
+        }
+    }
+
+
+
+   public function savePenjualanDetail(Request $request)
+{
+    try {
+        $penjualan = Penjualan::where('no_faktur', $request->no_faktur)->firstOrFail();
+
+        foreach ($request->detail as $item) {
+            $harga = (float) preg_replace('/[^\d]/', '', $item['harga']);
+            $qty = (float) $item['qty'];
+            $diskon = (float) str_replace(['%', ','], ['', '.'], $item['diskon']);
+
+            $bruto = $harga * $qty;
+            $jumlah = $bruto - ($diskon / 100 * $bruto);
+
+            $penjualan->detailPenjualan()->updateOrCreate(
+                ['no_faktur' => $penjualan->no_faktur, 'kode_barang' => $item['kode_barang']],
+                [
+                    'harga' => $harga,
+                    'qty' => $qty,
+                    'diskon' => $diskon,
+                    'bruto' => $bruto,
+                    'jumlah' => $jumlah,
+                ]
+            );
+        }
+
+        return response()->json(['success' => true, 'message' => 'Detail berhasil disimpan']);
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+    }
+}
+
+
 
 
     public function searchTransaksi(Request $request)
@@ -211,112 +254,88 @@ class PenjualanController extends Controller
             ], 500);
         }
     }
+public function updateHeader(Request $request, $no_faktur)
+{
+$penjualan = Penjualan::whereRaw('LOWER(no_faktur) = ?', [strtolower($no_faktur)])->first();
 
-    public function update(Request $request, $no_faktur)
-    {
-        DB::beginTransaction();
-
-        $no_faktur_lama = strtolower($request->no_faktur_lama);
-
-        $penjualan = Penjualan::whereRaw('LOWER(no_faktur) = ?', [$no_faktur_lama])->first();
-
-        if (!$penjualan) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Data penjualan tidak ditemukan.'
-            ], 404);
-        }
-
-        $request->validate([
-            'kode_customer' => ['required', 'string', 'size:4', 'exists:customer,kode_customer'],
-            'kode_jenis_transaksi' => ['required', 'string', 'size:1'],
-            'tgl_faktur' => ['required', 'date'],
-            'total_bruto' => ['required', 'numeric', 'min:0'],
-            'total_diskon' => ['required', 'numeric', 'min:0'],
-            'total_jumlah' => ['required', 'numeric', 'min:0'],
-            'detail' => ['required', 'array', 'min:1'],
-            'detail.*.kode_barang' => ['required', 'string', 'exists:barang,kode_barang'],
-            'detail.*.harga' => ['required', 'numeric', 'min:0'],
-            'detail.*.qty' => ['required', 'numeric', 'min:1'],
-            'detail.*.diskon' => ['required', 'numeric', 'min:0'],
-        ], [
-            'detail.required' => 'Detail penjualan wajib diisi.',
-            'detail.array' => 'Format detail penjualan tidak valid.',
-            'detail.min' => 'Minimal harus ada satu barang di detail.',
-            'detail.*.kode_barang.required' => 'Kode barang wajib diisi di setiap baris detail.',
-            'detail.*.kode_barang.exists' => 'Kode barang tidak ditemukan.',
-            'detail.*.harga.required' => 'Harga wajib diisi di setiap baris detail.',
-            'detail.*.harga.numeric' => 'Harga harus berupa angka.',
-            'detail.*.qty.required' => 'Qty wajib diisi di setiap baris detail.',
-            'detail.*.qty.numeric' => 'Qty harus berupa angka.',
-            'detail.*.qty.min' => 'Qty minimal 1.',
-            'detail.*.diskon.required' => 'Diskon wajib diisi di setiap baris detail.',
-            'detail.*.diskon.numeric' => 'Diskon harus berupa angka.',
-        ]);
-        $penjualan->detailPenjualan()->where('no_faktur', $no_faktur_lama)->forceDelete();
-
-        try {
-            // Update header
-            $penjualan->update([
-                'no_faktur' => $request->no_faktur,  // Pastikan no_faktur diupdate
-                'kode_customer' => $request->kode_customer,
-                'kode_jenis_transaksi' => $request->kode_jenis_transaksi,
-                'tgl_faktur' => $request->tgl_faktur,
-                'total_bruto' => $request->total_bruto,
-                'total_diskon' => $request->total_diskon,
-                'total_jumlah' => $request->total_jumlah,
-            ]);
-
-
-            $detailData = $request->detail;
-
-            // Tambahkan ulang detail baru dengan no_faktur yang baru
-            foreach ($detailData as $item) {
-                $harga = (float)$item['harga'];
-                $qty = (float)$item['qty'];
-                $diskon = (float)$item['diskon'];
-
-                $bruto = $harga * $qty;
-                $jumlah = $bruto - ($diskon / 100 * $bruto);
-
-                // Cek apakah detail dengan kode_barang sudah ada
-                $existingDetail = $penjualan->detailPenjualan()->where('kode_barang', $item['kode_barang'])->first();
-
-                if ($existingDetail) {
-                    // Update detail jika ada
-                    $existingDetail->update([
-                        'harga' => $harga,
-                        'qty' => $qty,
-                        'diskon' => $diskon,
-                        'bruto' => $bruto,
-                        'jumlah' => $jumlah,
-                    ]);
-                } else {
-                    // Jika tidak ada, buat data baru
-                    $penjualan->detailPenjualan()->create([
-                        'no_faktur' => $request->no_faktur,
-                        'kode_barang' => $item['kode_barang'],
-                        'harga' => $harga,
-                        'qty' => $qty,
-                        'diskon' => $diskon,
-                        'bruto' => $bruto,
-                        'jumlah' => $jumlah,
-                    ]);
-                }
-            }
-
-
-            DB::commit();  // Commit transaksi setelah selesai semua proses
-            return response()->json([
-                'success' => true,
-                'message' => 'Data penjualan berhasil diperbarui!'
-            ]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Gagal update: ' . $e->getMessage()
-            ], 500);
-        }
+    if (!$penjualan) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Data penjualan tidak ditemukan.'
+        ], 404);
     }
+
+    $request->validate([
+        'kode_customer' => ['required', 'string', 'size:4', 'exists:customer,kode_customer'],
+        'kode_jenis_transaksi' => ['required', 'string', 'size:1'],
+        'tgl_faktur' => ['required', 'date'],
+    ]);
+
+    $penjualan->update([
+        'kode_customer' => $request->kode_customer,
+        'kode_jenis_transaksi' => $request->kode_jenis_transaksi,
+        'tgl_faktur' => $request->tgl_faktur,
+    ]);
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Header penjualan berhasil diperbarui.'
+    ]);
+}
+public function updateDetail(Request $request, $no_faktur)
+{
+    $penjualan = Penjualan::where('no_faktur', $no_faktur)->first();
+
+    if (!$penjualan) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Data penjualan tidak ditemukan.'
+        ], 404);
+    }
+
+    $request->validate([
+        'detail' => ['required', 'array', 'min:1'],
+        'detail.*.kode_barang' => ['required', 'string'],
+        'detail.*.harga' => ['required', 'numeric'],
+        'detail.*.qty' => ['required', 'numeric'],
+        'detail.*.diskon' => ['required', 'numeric'],
+    ]);
+
+    DB::beginTransaction();
+    try {
+        $penjualan->detailPenjualan()->forceDelete(); // atau hapus per barang jika perlu
+
+        foreach ($request->detail as $item) {
+            $harga = (float)$item['harga'];
+            $qty = (float)$item['qty'];
+            $diskon = (float)$item['diskon'];
+
+            $bruto = $harga * $qty;
+            $jumlah = $bruto - ($diskon / 100 * $bruto);
+
+            $penjualan->detailPenjualan()->create([
+                'no_faktur' => $no_faktur,
+                'kode_barang' => $item['kode_barang'],
+                'harga' => $harga,
+                'qty' => $qty,
+                'diskon' => $diskon,
+                'bruto' => $bruto,
+                'jumlah' => $jumlah,
+            ]);
+        }
+
+        DB::commit();
+        return response()->json([
+            'success' => true,
+            'message' => 'Detail penjualan berhasil diperbarui.'
+        ]);
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json([
+            'success' => false,
+            'message' => 'Gagal update detail: ' . $e->getMessage()
+        ], 500);
+    }
+}
+
 }

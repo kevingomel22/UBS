@@ -36,7 +36,7 @@
         <div class="card mb-4" id="header">
             <div class="card-body">
                 <div>
-                    <button class="btn btn-light btn-sm" type="button" id="btnInput" disabled>
+                    <button class="btn btn-light btn-sm" type="button" id="btnInput" >
                         Input
                     </button>
                     <button class="btn btn-light btn-sm" type="button" id="btnHapus" disabled>
@@ -45,10 +45,10 @@
                     <button class="btn btn-light btn-sm" type="button" id="btnEdit" disabled>
                         Edit
                     </button>
-                    <button class="btn btn-light btn-sm" type="submit" id="btnSimpan" disabled>
+                    <button class="btn btn-light btn-sm" type="button" id="btnSimpan" disabled>
                         Simpan
                     </button>
-                    <button class="btn btn-light btn-sm" type="button" id="btnCari">
+                    <button class="btn btn-light btn-sm" type="button" id="btnCari" disabled>
                         Cari
                     </button>
                     <button class="btn btn-light btn-sm" type="button" id="btnBatal" disabled>
@@ -68,8 +68,8 @@
                 <div class="form-row mb-3">
                     <div class="col-md-6">
                         <label>No Faktur</label>
-                        <input type="text" class="form-control" id="no-faktur" name="no_faktur"
-                            style="text-transform: uppercase" maxlength="6" autofocus />
+                        <input type="text" class="form-control select-readonly" id="no-faktur" name="no_faktur"
+                            style="text-transform: uppercase" maxlength="6"  />
                         <input type="hidden" name="no_faktur_lama">
                     </div>
                     <div class="col-md-6">
@@ -105,18 +105,25 @@
                         </select>
                     </div>
                 </div>
+                <div class="text-end mt-2">
+    <button class="btn btn-light btn-sm" type="button" id="btnDetail" >
+        Detail
+    </button>
+</div>
+
             </div>
         </div>
-
+</form>
         {{-- D: Detail Input Barang --}}
-        <div class="card mb-4" id="detail" style="display: none">
+        <div class="card mb-4" id="detail" >
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center border-bottom pb-2">
                     <div>
                         <button id="btn-input" type="button" class="btn btn-light btn-sm" disabled>
                             Input
                         </button>
-                        <button id="btn-hapus" type="button" class="btn btn-light btn-sm" disabled>
+<input type="hidden" id="kode-barang-aktif">
+                        <button id="btn-hapus" type="button" class="btn btn-light btn-sm"  disabled>
                             Hapus
                         </button>
                         <button id="btn-simpan" type="button" class="btn btn-light btn-sm" disabled>
@@ -133,7 +140,7 @@
                 <div class="form-row d-flex flex-wrap mb-3 align-items-end">
                     <div class="col-auto mb-3" style="min-width: 160px; max-width: 180px;">
                         <label for="kode-select">Kode Barang</label>
-                        <select name="kode-barang" id="kode-select" class="form-control select2" readonly>
+                        <select name="kode-barang" id="kode-select" class="form-control select2" disabled>
                             <option value=""></option>
                         </select>
                     </div>
@@ -194,7 +201,7 @@
             </div>
         </div>
 
-        <div class="card mb-4" id="tabel-transaksi-barang" style="display: none">
+        <div class="card mb-4" id="tabel-transaksi-barang" >
             <div class="card-body">
                 <div class="form-row mb-3">
                     <table class="table table-hover table-striped align-middle">
@@ -218,7 +225,7 @@
         <div id="hidden-input-container">
         </div>
         {{-- H - TOT: Footer Total --}}
-        <div class="card" id="footer" style="display: none">
+        <div class="card" id="footer" >
             <div class="card-body">
                 <div class="row text-right">
                     <div class="col-md-9"><strong>TOTAL BRUTO</strong></div>
@@ -241,7 +248,7 @@
             </div>
         </div>
     </div>
-</form>
+
 <!-- Modal -->
 <div class="modal fade" id="modalPreview" tabindex="-1" role="dialog" aria-labelledby="modalPreviewLabel"
     aria-hidden="true">
@@ -267,6 +274,55 @@
 @push('js')
 <script>
     $(document).ready(function() {
+        let detailData = [];
+
+    $('#btn-hapus').on('click', function () {
+    const kodeBarang = $('#kode-barang-aktif').val();
+    
+    if (!kodeBarang) {
+        Swal.fire('Error', 'Tidak ada barang yang dipilih untuk dihapus.', 'error');
+        return;
+    }
+
+    Swal.fire({
+        title: 'Apakah Anda yakin?',
+        text: "Barang ini akan dihapus dari detail penjualan!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Hapus',
+        cancelButtonText: 'Batal'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Kirim request AJAX untuk menghapus barang
+            $.ajax({
+                url: `/penjualan/detail/hapus/${kodeBarang}`, // Endpoint untuk menghapus
+                type: 'DELETE',
+                data: {
+                    no_faktur: $('#no-faktur').val(), // pastikan no_faktur ada dalam form atau elemen yang relevan
+                    _token: '{{ csrf_token() }}',  // Jika menggunakan csrf di Laravel
+                },
+                success: function(response) {
+                    if (response.success) {
+                        Swal.fire('Terhapus!', 'Barang telah dihapus dari detail penjualan.', 'success');
+                        // Lakukan penghapusan elemen di halaman (opsional)
+                        $('#kode-barang-aktif').val('');
+                        $('#btn-hapus').prop('disabled', true);
+                        // Perbarui UI atau panggil ulang data jika perlu
+                    } else {
+                        Swal.fire('Gagal!', 'Gagal menghapus barang.', 'error');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    Swal.fire('Error', 'Terjadi kesalahan saat menghapus barang.', 'error');
+                }
+            });
+        }
+    });
+});
+
+
+
+
 
         document.getElementById('kode-customer').addEventListener('change', function() {
             const selectedOption = this.options[this.selectedIndex];
@@ -350,10 +406,7 @@
                 cache: true
             }
         }).on('select2:select', function(e) {
-            unsetSelectReadonly("qty");
-            unsetSelectReadonly("diskon");
-            toggleButtons(['#btn-batal'], true); // enable
-            toggleButtons(['#btn-input'], true); // enable
+            
             const data = e.params.data.data;
 
             // Isi input nama barang dan harga
@@ -364,6 +417,13 @@
             calculate();
         });
 
+$("#btn-input").on('click',function(){
+$("#kode-select").removeAttr('disabled');
+unsetSelectReadonly("kode-select");
+unsetSelectReadonly("qty");
+            unsetSelectReadonly("diskon");
+});
+
         const $btnInput = $('#btn-input');
         const $btnHapus = $('#btn-hapus');
         const $btnSimpan = $('#btn-simpan');
@@ -371,65 +431,173 @@
         const $btnHeader = $('#btn-header');
 
 
+        $('#btn-simpan').on('click', function () {
+    const kodeBarang = $('#kode-select').val()?.toUpperCase();
+    const namaBarang = $('#nama-barang').val();
+    const harga = AutoNumeric.getNumber('#harga-barang');
+    const qty = AutoNumeric.getNumber('#qty');
+    const diskon = AutoNumeric.getNumber('#diskon');
+    const noFaktur = $('#no-faktur').val()?.toUpperCase();
+
+    // Validasi input
+    if (!kodeBarang) {
+        return Swal.fire('Error', 'Silakan pilih barang terlebih dahulu', 'error');
+    }
+
+    if (!qty || isNaN(qty) || qty <= 0) {
+        return Swal.fire('Error', 'Qty harus lebih dari 0', 'error');
+    }
+
+    if (diskon === null || isNaN(diskon) || diskon < 0 || diskon > 100) {
+        return Swal.fire('Error', 'Diskon harus antara 0% - 100%', 'error');
+    }
+
+    // Cek apakah barang sudah pernah ditambahkan sebelumnya (di DOM)
+    const existingRow = $(`#detail-table-body tr[data-kode="${kodeBarang}"]`);
+    if (existingRow.length > 0) {
+        return Swal.fire('Barang sudah ditambahkan', `Barang ${kodeBarang} sudah ada di daftar.`, 'warning');
+    }
+
+    // Hitung
+    const bruto = harga * qty;
+    const jumlah = bruto - (diskon / 100 * bruto);
+
+    // Kirim ke server via AJAX
+    $.ajax({
+        url: '/penjualan/save-detail',
+        method: 'POST',
+        data: {
+            no_faktur: noFaktur,
+            detail: [{
+                kode_barang: kodeBarang,
+                qty: qty,
+                diskon: diskon,
+                harga: harga
+            }],
+            _token: $('meta[name="csrf-token"]').attr('content')
+        },
+        success: function (response) {
+            // Tampilkan di tabel jika sukses
+            const row = `
+                <tr data-kode="${kodeBarang}">
+                    <td>${noFaktur}</td>
+                    <td>${kodeBarang}</td>
+                    <td>${namaBarang}</td>
+                    <td class="text-right">${harga}</td>
+                    <td class="text-right">${qty}</td>
+                    <td class="text-right">${diskon}%</td>
+                    <td class="text-right">${bruto.toFixed(0)}</td>
+                    <td class="text-right">${jumlah.toFixed(0)}</td>
+                </tr>
+            `;
+            $('#detail-table-body').append(row);
+
+            Swal.fire('Sukses', 'Barang berhasil disimpan', 'success');
+
+            // Reset form
+            $('#kode-select').val(null).trigger('change');
+            AutoNumeric.getAutoNumericElement("#harga-barang")?.set('');
+            AutoNumeric.getAutoNumericElement("#qty")?.set('');
+            AutoNumeric.getAutoNumericElement("#diskon")?.set('');
+            AutoNumeric.getAutoNumericElement("#bruto")?.set('');
+            AutoNumeric.getAutoNumericElement("#jumlah")?.set('');
+            $('#nama-barang').val('');
+        },
+        error: function () {
+            Swal.fire('Gagal', 'Gagal menyimpan ke server', 'error');
+        }
+    });
+});
+
 
         // Saat tombol BATAL ditekan
         $btnBatal.on('click', function() {
             resetFormDetail();
-            toggleButtons(['#btn-batal'], false);
 
         });
+        $("#btnDetail").on('click',function(){
+            toggleButtons(['#btn-input', '#btn-hapus', "#btn-simpan",'#btn-batal', '#btn-header'], true);
 
+        });
+        $("#btnInput").on('click',function(){
+            toggleButtons(['#btnEdit', '#btnBatal', "#btnDetail",'#btnCari', '#btnPreview', "#btnPrint","#btnSimpan","#btnHapus","#btnInput","#btnCSV"], true);
+            
+            unsetSelectReadonly("no-faktur");
+            unsetSelectReadonly("kode-customer");
+            unsetSelectReadonly("jenis-transaksi");
+            unsetSelectReadonly("tgl-faktur");
+            
+
+
+    
+        })
         // Saat tombol SIMPAN ditekan
-        $btnInput.on('click', function() {
-            const qty = AutoNumeric.getNumber('#qty');
-            const diskon = AutoNumeric.getNumber('#diskon');
-            const kodeSelect = $('#kode-select').val();
-            // Tambahkan validasi isian form
-
-            if (kodeSelect && qty > 0 && diskon >= 0) {
-                simpanDetailBarang();
-                $('#kode-select').val(null).trigger('change');
-                AutoNumeric.getAutoNumericElement("#qty")?.set('');
-                AutoNumeric.getAutoNumericElement("#diskon")?.set('');
-                $('#nama-barang').val('');
-                $('#harga-barang').val('');
-                $('#bruto').val('');
-                $('#jumlah').val('');
-                AutoNumeric.getAutoNumericElement("#harga-barang")?.set('');
-                AutoNumeric.getAutoNumericElement("#bruto")?.set('');
-                AutoNumeric.getAutoNumericElement("#jumlah")?.set('');
-                toggleButtons(['#btnSimpan'], true);
-                toggleButtons(['#btn-input', 'btn-batal'], false);
-                setSelectReadonly("qty");
-                setSelectReadonly("diskon");
-
-            } else if (!$('#qty').val() || parseFloat($('#qty').val()) <= 0 || isNaN(parseFloat($(
-                    '#qty').val()))) {
-                Swal.fire({
-                    title: 'Error Validasi',
-                    html: 'Quantity harus diisi dan lebih besar dari 0',
-                    icon: 'error',
-                    confirmButtonText: 'OK'
+        $("#btnSimpan").on('click', function() {
+            let $no_faktur = $('#no-faktur');  // Pastikan $no_faktur didefinisikan dengan benar
+            let formMode = $('#form_mode').val();  // Ambil mode dari form (create/update)
+            
+            $('#btnBatal').data('mode', 'input');
+            
+            // Validasi form
+            if ($no_faktur.val() && $('#tgl-faktur').val() && $('#kode-customer').val() && $('#jenis-transaksi').val()) {
+                let formData = $("#form-penjualan").serialize();
+                
+                // Tentukan URL berdasarkan mode
+                let url = (formMode === 'create') ? '/penjualan/save' : `/penjualan/update-header/${$no_faktur.val()}`;
+                let method = (formMode === 'create') ? 'POST' : 'PUT';
+                $.ajax({
+                    url: url,  // URL berbeda berdasarkan mode
+                    method: method,
+                    data: formData,
+                    success: function(response) {
+                        toggleButtons(['#btnEdit','#btnBatal', '#btnCari', '#btnPreview', "#btnPrint","#btnSimpan","#btnHapus","#btnInput","#btnCSV"], false);
+                        
+                        Swal.fire({
+                            title: 'Berhasil',
+                            html: (formMode === 'create') ? 'Data penjualan berhasil disimpan!' : 'Data penjualan berhasil diperbarui!',
+                            icon: 'success',
+                            confirmButtonText: 'OK'
+                        });
+                    },
+                    error: function(xhr) {
+                        Swal.fire({
+                            title: 'Gagal',
+                            html: 'Terjadi kesalahan saat menyimpan data.',
+                            icon: 'error',
+                            confirmButtonText: 'OK'
+                        });
+                    }
                 });
-            } else if (!$('#diskon').val() || parseFloat($('#diskon').val()) < 0 || isNaN(parseFloat($(
-                    '#diskon').val()))) {
+
+            } else {
+                // Jika ada field yang kosong, tampilkan pesan error yang sesuai
+                let errorMessage = '';
+
+                if (!$no_faktur.val()) {
+                    errorMessage = 'No Faktur wajib diisi!';
+                } else if (!$('#tgl-faktur').val()) {
+                    errorMessage = 'Tanggal Faktur wajib diisi!';
+                } else if (!$('#kode-customer').val()) {
+                    errorMessage = 'Kode Customer wajib diisi!';
+                } else if (!$('#jenis-transaksi').val()) {
+                    errorMessage = 'Jenis Transaksi wajib dipilih!';
+                }
+
                 Swal.fire({
                     title: 'Error Validasi',
-                    html: 'Diskon tidak boleh kurang dari 0',
+                    html: errorMessage,
                     icon: 'error',
                     confirmButtonText: 'OK'
                 });
             }
-            $('#footer').show();
-
         });
+
 
         // Saat tombol HEADER ditekan
         $btnHeader.on('click', function() {
-            $('#header').toggle();
-            toggleButtons(['#btnEdit', '#btnBatal', '#btnCari', '#btnPreview', "#btnPrint"], true);
+            toggleButtons(['#btnEdit', '#btnDetail','#btnBatal', '#btnCari', '#btnPreview', "#btnPrint","#btnSimpan","#btnHapus","#btnInput","#btnCSV"], true);
             $btnEditHeader.on('click', function() {
-                $('#form_mode').val('create');
+                $('#form_mode').val('update');
                 toggleButtons(['#btnSimpan'], false);
                 $('#no-faktur, #tgl-faktur, #kode-customer, #jenis-transaksi').on('change',
                     function() {
@@ -497,18 +665,13 @@
                 setSelectReadonly("jenis-transaksi");
 
                 // Kembalikan tombol ke kondisi awal
-                toggleButtons(["#btnInput", "#btnHapus", "#btnSimpan", "#btnBatal"], false);
             } else {
                 resetHeader();
                 resetFormDetail();
-                toggleButtons(['#btnInput', '#btnEdit'], false); // enable
                 setSelectReadonly("tgl-faktur");
                 document.getElementById('no-faktur').removeAttribute('readonly', 'readonly');
 
                 setSelectReadonly("kode-customer");
-                $('#detail').css('display', 'none');
-                $('#footer').css('display', 'none');
-                $('#tabel-transaksi-barang').css('display', 'none');
                 setSelectReadonly("jenis-transaksi");
             }
 
@@ -541,17 +704,6 @@
                 $(selector).prop('disabled', !enable);
             });
         }
-
-        $no_faktur.on('change', function() {
-            unsetSelectReadonly("kode-customer");
-            unsetSelectReadonly("jenis-transaksi");
-            unsetSelectReadonly("tgl-faktur");
-            toggleButtons(['#btnInput', '#btnBatal'], true); // disable
-            // toggleButtons(['#btnEdit'], true); // enable
-
-
-        });
-
 
         function loadDataTransaksi(data) {
             renderDetailHTML();
@@ -592,7 +744,7 @@
         function renderDetailBarang(data) {
             if (!Array.isArray(data)) {
                 console.error('Data bukan array atau data kosong!');
-                return; // Keluar dari fungsi jika data tidak sesuai
+                return; 
             }
 
             const tbody = $('#detail-table-body');
@@ -647,57 +799,11 @@
 
 
 
-        $btnInputHeader.on('click', function() {
-            $('#btnBatal').data('mode', 'input');
-            // Validasi sederhana, sesuaikan dengan kebutuhanmu
-            if ($no_faktur.val() && $('#tgl-faktur').val() && $('#kode-customer').val() && $(
-                    '#jenis-transaksi').val()) {
-                // Tampilkan bagian detail
-                $('#header').hide();
-                $('#detail').show();
-                $('#tabel-transaksi-barang').show();
-                // Nonaktifkan input header agar tidak diubah lagi
-                $('#no-faktur').prop('readonly', true);
-                setSelectReadonly("tgl-faktur");
-                setSelectReadonly("kode-customer");
-                setSelectReadonly("jenis-transaksi");
-                toggleButtons(['#btnInput'], false);
-                toggleButtons(['#btnCari'], false);
-                toggleButtons(['#btnBatal'], false);
-            } else if (!$no_faktur.val()) {
-                Swal.fire({
-                    title: 'Error Validasi',
-                    html: 'No Faktur wajib diisi!',
-                    icon: 'error',
-                    confirmButtonText: 'OK'
-                });
-            } else if (!$('#tgl-faktur').val()) {
-                Swal.fire({
-                    title: 'Error Validasi',
-                    html: 'Tanggal Faktur wajib diisi!',
-                    icon: 'error',
-                    confirmButtonText: 'OK'
-                });
-            } else if (!$('#kode-customer').val()) {
-                Swal.fire({
-                    title: 'Error Validasi',
-                    html: 'Kode Customer wajib diisi!',
-                    icon: 'error',
-                    confirmButtonText: 'OK'
-                });
-            } else if (!$('#jenis-transaksi').val()) {
-                Swal.fire({
-                    title: 'Error Validasi',
-                    html: 'Jenis Transaksi wajib dipilih!',
-                    icon: 'error',
-                    confirmButtonText: 'OK'
-                });
-            }
-        });
+        
 
         function resetFormDetail() {
             $('#kode-select').val(null).trigger('change');
-            $('#qty').val(1);
+            $('#qty').val(0);
             $('#diskon').val(0);
             $('#nama-barang').val('');
             AutoNumeric.getAutoNumericElement("#harga-barang")?.set('');
@@ -725,83 +831,56 @@
         }
 
         function simpanDetailBarang() {
-            const kodeBarang = $('#kode-select').val().toUpperCase();
-            const namaBarang = $('#nama-barang').val();
-            const harga = AutoNumeric.getNumber('#harga-barang');
-            const qtyInput = AutoNumeric.getNumber('#qty');
-            const diskon = AutoNumeric.getNumber('#diskon');
-            const noFaktur = $('#no-faktur').val().toUpperCase();
+    const kodeBarang = $('#kode-select').val().toUpperCase();
+    const namaBarang = $('#nama-barang').val();
+    const harga = AutoNumeric.getNumber('#harga-barang');
+    const qtyInput = AutoNumeric.getNumber('#qty');
+    const diskon = AutoNumeric.getNumber('#diskon');
+    const noFaktur = $('#no-faktur').val().toUpperCase();
 
-            // Hitung nilai awal
-            const brutoBaru = harga * qtyInput;
-            const jumlahDiskonBaru = (diskon / 100) * brutoBaru;
-            const totalBaru = brutoBaru - jumlahDiskonBaru;
+    const brutoBaru = harga * qtyInput;
+    const jumlahDiskonBaru = (diskon / 100) * brutoBaru;
+    const totalBaru = brutoBaru - jumlahDiskonBaru;
 
-            // Update preview
-            AutoNumeric.getAutoNumericElement("#bruto")?.set(brutoBaru);
-            AutoNumeric.getAutoNumericElement("#jumlah")?.set(totalBaru);
+    AutoNumeric.getAutoNumericElement("#bruto")?.set(brutoBaru);
+    AutoNumeric.getAutoNumericElement("#jumlah")?.set(totalBaru);
 
-            const existingRow = $(`#detail-table-body tr[data-kode="${kodeBarang}"]`);
+    const existingRow = $(`#detail-table-body tr[data-kode="${kodeBarang}"]`);
 
-            if (existingRow.length > 0) {
-                // Sudah ada barang ini → update qty & total
-                const oldQty = parseFloat(existingRow.attr('data-qty'));
-                const newQty = oldQty + qtyInput;
-                const newBruto = harga * newQty;
-                const newJumlahDiskon = (diskon / 100) * newBruto;
-                const newTotal = newBruto - newJumlahDiskon;
+    if (existingRow.length > 0) {
+        return Swal.fire('Barang sudah ditambahkan', `Barang dengan kode ${kodeBarang} sudah ada di daftar.`, 'warning');
+    }
 
-                // Update atribut
-                existingRow.attr('data-qty', newQty);
+    $('#kode-barang-aktif').val(kodeBarang);
+    const index = $('.detail-barang').length;
 
-                // Update tampilan tabel
-                existingRow.find('.qty').text(newQty);
-                AutoNumeric.getAutoNumericElement(existingRow.find('.bruto')[0])?.set(newBruto);
-                AutoNumeric.getAutoNumericElement(existingRow.find('.jumlah')[0])?.set(newTotal);
-
-
-                // Update hidden input
-                const index = existingRow.index();
-                const hiddenQtyInput = $(
-                    `#hidden-input-container .detail-barang:eq(${index}) input[name="detail[${index}][qty]"]`
-                );
-                hiddenQtyInput.val(newQty);
-
-            } else {
-                // Barang belum ada → tambahkan baris baru
-                const index = $('.detail-barang').length;
-                const row = `
-<tr data-kode="${kodeBarang}" data-nama="${namaBarang}" data-harga="${harga}" data-qty="${qtyInput}" data-diskon="${diskon}">
-    <td>${noFaktur}</td>
-    <td>${kodeBarang}</td>
-    <td>${namaBarang}</td>
-    <td class="text-right currency harga">${harga}</td>
-    <td class="text-right qty">${qtyInput}</td>
-    <td class="text-right diskon qtyPercent">${diskon}</td>
-    <td class="text-right bruto currency">${brutoBaru}</td>
-    <td class="text-right jumlah currency">${totalBaru}</td>
-</tr>
+    const row = `
+        <tr data-kode="${kodeBarang}" data-nama="${namaBarang}" data-harga="${harga}" data-qty="${qtyInput}" data-diskon="${diskon}">
+            <td>${noFaktur}</td>
+            <td>${kodeBarang}</td>
+            <td>${namaBarang}</td>
+            <td class="text-right currency harga">${harga}</td>
+            <td class="text-right qty">${qtyInput}</td>
+            <td class="text-right diskon qtyPercent">${diskon}</td>
+            <td class="text-right bruto currency">${brutoBaru}</td>
+            <td class="text-right jumlah currency">${totalBaru}</td>
+        </tr>
     `;
-                $('#detail-table-body').append(row);
+    $('#detail-table-body').append(row);
 
-                const hiddenInputs = `
-<div class="detail-barang">
-    <input type="hidden" name="detail[${index}][kode_barang]" value="${kodeBarang}">
-    <input type="hidden" name="detail[${index}][harga]" value="${harga}">
-    <input type="hidden" name="detail[${index}][qty]" value="${qtyInput}">
-    <input type="hidden" name="detail[${index}][diskon]" value="${diskon}">
-</div>
+    const hiddenInputs = `
+        <div class="detail-barang">
+            <input type="hidden" name="detail[${index}][kode_barang]" value="${kodeBarang}">
+            <input type="hidden" name="detail[${index}][harga]" value="${harga}">
+            <input type="hidden" name="detail[${index}][qty]" value="${qtyInput}">
+            <input type="hidden" name="detail[${index}][diskon]" value="${diskon}">
+        </div>
     `;
-                $('#hidden-input-container').append(hiddenInputs);
-            }
+    $('#hidden-input-container').append(hiddenInputs);
 
-
-            // Re-initialize after DOM updates
-            initAutoNumericAll();
-            calculateFooter();
-
-        }
-
+    initAutoNumericAll();
+    calculateFooter();
+}
         function toTitleCase(str) {
             return str.replace(/\w\S*/g, function(txt) {
                 return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
@@ -941,10 +1020,7 @@
                     $('#modalCari').modal('hide');
                     $('#tabel-transaksi-barang').show();
                     loadDataTransaksi(res);
-                    toggleButtons(['#btnEdit', '#btnHapus', '#btnPrint', '#btnPreview',
-                            '#btnCSV'
-                        ],
-                        true);
+
                     setSelectReadonly("no-faktur");
                     $('#footer').show();
                     $('#detail').show();
@@ -966,7 +1042,10 @@
             initAutoNumeric("#total-diskon", "currency");
 
 
-            $btnHapusHeader.on('click', function() {
+            
+        });
+
+$btnHapusHeader.on('click', function() {
                 const noFaktur = $('#no-faktur').val();
 
                 if (!noFaktur) {
@@ -1018,9 +1097,6 @@
                     }
                 });
             });
-        });
-
-
         $(document).on('click', '#btn-hapus', function() {
             if (selectedRow) {
                 selectedRow.remove();
@@ -1029,7 +1105,7 @@
                 // Reset form detail jika perlu
                 $('#kode-select').val(null).trigger('change');
                 $('#nama-barang').val('');
-                $('#qty').val(1);
+                $('#qty').val(0);
                 AutoNumeric.getAutoNumericElement('#diskon')?.set(0);
                 AutoNumeric.getAutoNumericElement('#harga-barang')?.set('');
 
@@ -1037,7 +1113,6 @@
                 AutoNumeric.getAutoNumericElement('#bruto')?.set('');
                 AutoNumeric.getAutoNumericElement('#jumlah')?.set('');
                 // Matikan tombol kembali jika tidak ada baris
-                toggleButtons(['#btn-hapus', '#btn-input', '#btn-batal'], false);
             }
         });
 
@@ -1046,17 +1121,17 @@
             // Saat klik "Edit" atau load data untuk update
             $('#form_mode').val('update');
             $('#btnBatal').data('mode', 'edit');
-            toggleButtons(["#btnEdit", '#btnHapus'], false);
-            toggleButtons(["#btnBatal", "#btnSimpan"], true);
+            
             unsetSelectReadonly("no-faktur");
             unsetSelectReadonly("tgl-faktur");
             unsetSelectReadonly("kode-customer");
             unsetSelectReadonly("jenis-transaksi");
 
-            $('#detail-table-body').on('click', 'tr', function() {
+            
+
+        });
+$('#detail-table-body').on('click', 'tr', function() {
                 selectedRow = $(this);
-                toggleButtons(['#btn-input'], false);
-                toggleButtons(['#btn-hapus'], true);
 
                 // Ambil data yang terkait dengan tr
                 const kode = $(this).data('kode');
@@ -1102,118 +1177,18 @@
                 }).on('select2:select', function(e) {
                     unsetSelectReadonly("qty");
                     unsetSelectReadonly("diskon");
-                    toggleButtons(['#btn-batal'], true); // enable
-                    toggleButtons(['#btn-input'], true); // enable
                     const data = e.params.data.data;
 
                     // Isi input nama barang dan harga
                     $('#nama-barang').val(toTitleCase(data.nama_barang));
                     initAutoNumeric("#harga-barang", "currency").set(data.harga_barang);
                 });
-                $('#kode-select, #qty, #diskon').on('change', function() {
-                    toggleButtons(['#btn-simpan'], true);
-                });
+                
                 $('.btn-plus, .btn-minus, .btn-plus-diskon, .btn-minus-diskon').on('click',
                     function() {
                         toggleButtons(['#btn-simpan'], true);
                     });
-                $('#btn-simpan').on('click', function() {
-
-                    const kodeBarangForm = $('#kode-select').val();
-                    const namaBarangForm = $('#nama-barang').val();
-                    const harga = AutoNumeric.getNumber('#harga-barang') || 0;
-                    const qty = AutoNumeric.getNumber('#qty') || 0;
-                    const diskon = AutoNumeric.getNumber('#diskon') || 0;
-                    const noFaktur = $('#no-faktur').val();
-
-                    const bruto = harga * qty;
-                    const jumlahDiskon = (diskon / 100) * bruto;
-                    const total = bruto - jumlahDiskon;
-
-                    // Update baris yang sesuai di tabel
-                    $('#detail-table-body tr').each(function() {
-                        const $row = $(this);
-                        if ($row.data('kode') === kodeBarangForm) {
-                            $row.find('td:eq(0)').text(noFaktur);
-                            $row.find('td:eq(1)').text(kodeBarangForm);
-                            $row.find('td:eq(2)').text(namaBarangForm);
-                            $row.find('.harga').text(harga);
-                            AutoNumeric.getAutoNumericElement($row.find('.qty')[
-                                0]).set(qty);
-                            AutoNumeric.getAutoNumericElement($row.find(
-                                '.diskon')[0]).set(diskon);
-
-                            $row.find('.bruto').text(bruto);
-                            $row.find('.jumlah').text(total);
-                        }
-                        $('#kode-select').val(null).trigger('change');
-                        $('#qty').val(1);
-                        $('#diskon').val(0);
-                        $('#nama-barang').val('');
-                        $('#harga-barang').val('');
-                        $('#bruto').val('');
-                        $('#jumlah').val('');
-                        AutoNumeric.getAutoNumericElement("#harga-barang")?.set(
-                            '');
-                        AutoNumeric.getAutoNumericElement("#bruto")?.set('');
-                        AutoNumeric.getAutoNumericElement("#jumlah")?.set('');
-                        toggleButtons(['#btnSimpan'], true);
-                        toggleButtons(['#btn-input', 'btn-batal'], false);
-                        setSelectReadonly("qty");
-                        setSelectReadonly("diskon");
-                    });
-
-                    // Sekarang kumpulkan semua data dari tabel
-                    const updatedData = [];
-
-                    $('#detail-table-body tr').each(function() {
-                        const $row = $(this);
-                        const hargaRaw = $row.find('.harga').text()
-                            .replace('Rp', '').replace(/\./g, '').replace(',',
-                                '.');
-
-                        const qtyInput = $row.find('.qty')[0];
-                        const diskonInput = $row.find('.diskon')[0];
-
-                        const item = {
-                            kode_barang: $row.find('td:eq(1)').text(),
-                            no_faktur: $row.find('td:eq(0)').text(),
-                            nama_barang: $row.find('td:eq(2)').text(),
-                            harga: parseFloat(hargaRaw) || 0,
-                            qty: AutoNumeric.getNumber(qtyInput),
-                            diskon: AutoNumeric.getNumber(diskonInput),
-                        };
-
-                        const bruto = item.harga * item.qty;
-                        const jumlahDiskon = (item.diskon / 100) * bruto;
-                        const total = bruto - jumlahDiskon;
-
-                        item.bruto = bruto;
-                        item.total = total;
-
-                        updatedData.push(item);
-
-                    });
-
-                    $('#hidden-input-container').empty();
-
-                    // Tambahkan ulang data yang sudah diperbarui
-                    updatedData.forEach((item, index) => {
-                        const hiddenInputs = `
-        <div class="detail-barang">
-            <input type="hidden" name="detail[${index}][kode_barang]" value="${item.kode_barang}">
-            <input type="hidden" name="detail[${index}][harga]" value="${item.harga}">
-            <input type="hidden" name="detail[${index}][qty]" value="${item.qty}">
-            <input type="hidden" name="detail[${index}][diskon]" value="${item.diskon}">
-        </div>
-    `;
-                        $('#hidden-input-container').append(hiddenInputs);
-                    });
-                    initAutoNumeric(".harga", "currency");
-                    initAutoNumeric(".bruto", "currency");
-                    initAutoNumeric(".jumlah", "currency");
-                    calculateFooter();
-                });
+                
 
 
 
@@ -1240,10 +1215,7 @@
                 });
 
 
-            });
-
-        });
-
+            }); 
         function renderDetailHTML() {
             $('#detail').html(
                 `
@@ -1270,7 +1242,7 @@
                 <div class="form-row d-flex flex-wrap mb-3 align-items-end">
                     <div class="col-auto mb-3" style="min-width: 160px; max-width: 180px;">
                         <label for="kode-select">Kode Barang</label>
-                        <select name="kode-barang" id="kode-select" class="form-control select2" readonly>
+                        <select name="kode-barang" id="kode-select" class="form-control select2 select-readonly" >
                             <option value=""></option>
                         </select>
                     </div>
@@ -1292,7 +1264,7 @@
                                 <button class="btn btn-outline-secondary btn-minus px-2" type="button">-</button>
                             </div>
                             <input type="text" class="form-control text-right px-1 qty select-readonly"
-                                name="qty" id="qty" value="1" />
+                                name="qty" id="qty" value="0" />
                             <div class="input-group-append">
                                 <button class="btn btn-outline-secondary btn-plus px-2" type="button">+</button>
                             </div>
